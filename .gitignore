@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+.android-sdk/
+.idea/
+local.properties
+dist/
+keystore/
+*.jks
+*.keystore
+keystore.properties
+build/
+**/build/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+Thumbs.db

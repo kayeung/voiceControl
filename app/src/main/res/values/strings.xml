@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">声控滑动助手</string>
+    <string name="accessibility_description">根据你在声控滑动助手中确认的语音指令执行上、下、左、右滑动。不读取或收集屏幕内容。</string>
+    <string name="tile_voice_label">声控滑动</string>
+    <string name="tile_voice_on">语音与无障碍已就绪</string>
+    <string name="tile_voice_off">点按一键启动</string>
+    <string name="tile_voice_need_accessibility">请授权无障碍服务</string>
+</resources>

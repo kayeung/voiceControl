@@ -1,0 +1,6 @@
+* text=auto
+app/src/main/assets/vosk-model-small-cn-0.22/** binary
+*.apk binary
+*.jar binary
+*.aar binary
+*.so binary
