@@ -52,6 +52,7 @@ public final class MainActivity extends Activity {
     private Button toggleListeningButton;
     private Button openAccessibilityButton;
     private Switch offlineEngineSwitch;
+    private Switch noisyModeSwitch;
     private Switch wakeWordSwitch;
     private EditText wakeWordInput;
     private EditText upCommandsInput;
@@ -151,6 +152,7 @@ public final class MainActivity extends Activity {
         toggleListeningButton = findViewById(R.id.toggleListeningButton);
         openAccessibilityButton = findViewById(R.id.openAccessibilityButton);
         offlineEngineSwitch = findViewById(R.id.offlineEngineSwitch);
+        noisyModeSwitch = findViewById(R.id.noisyModeSwitch);
         wakeWordSwitch = findViewById(R.id.wakeWordSwitch);
         wakeWordInput = findViewById(R.id.wakeWordInput);
         upCommandsInput = findViewById(R.id.upCommandsInput);
@@ -174,8 +176,24 @@ public final class MainActivity extends Activity {
                 durationValue.setText((100 + progress * 50) + "ms");
             }
         });
-        wakeWordSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
-                wakeWordInput.setEnabled(isChecked));
+        wakeWordSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (!noisyModeSwitch.isChecked()) {
+                wakeWordInput.setEnabled(isChecked);
+            }
+        });
+        noisyModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) ->
+                applyNoisyModeUi(isChecked));
+    }
+
+    private void applyNoisyModeUi(boolean enabled) {
+        if (enabled) {
+            wakeWordSwitch.setChecked(true);
+            wakeWordSwitch.setEnabled(false);
+            wakeWordInput.setEnabled(true);
+        } else {
+            wakeWordSwitch.setEnabled(true);
+            wakeWordInput.setEnabled(wakeWordSwitch.isChecked());
+        }
     }
 
     private void configureButtons() {
@@ -202,9 +220,11 @@ public final class MainActivity extends Activity {
 
     private void loadSettings() {
         offlineEngineSwitch.setChecked(settings.isOfflinePreferred());
-        wakeWordSwitch.setChecked(settings.isWakeWordRequired());
+        boolean noisyMode = settings.isNoisyModeEnabled();
+        noisyModeSwitch.setChecked(noisyMode);
+        wakeWordSwitch.setChecked(settings.isWakeWordRequired() || noisyMode);
         wakeWordInput.setText(settings.getWakeWord());
-        wakeWordInput.setEnabled(settings.isWakeWordRequired());
+        applyNoisyModeUi(noisyMode);
         upCommandsInput.setText(settings.getUpCommands());
         downCommandsInput.setText(settings.getDownCommands());
         leftCommandsInput.setText(settings.getLeftCommands());
@@ -226,18 +246,24 @@ public final class MainActivity extends Activity {
             return false;
         }
         String wakeWord = wakeWordInput.getText().toString();
-        if (wakeWordSwitch.isChecked() && CommandParser.normalize(wakeWord).isEmpty()) {
-            Toast.makeText(this, "启用唤醒词时，唤醒词不能为空", Toast.LENGTH_LONG).show();
+        boolean noisyMode = noisyModeSwitch.isChecked();
+        boolean wakeRequired = wakeWordSwitch.isChecked() || noisyMode;
+        if (wakeRequired && CommandParser.normalize(wakeWord).isEmpty()) {
+            Toast.makeText(this, "启用唤醒词或嘈杂模式时，唤醒词不能为空",
+                    Toast.LENGTH_LONG).show();
             return false;
         }
 
         settings.saveCommands(up, down, left, right);
-        settings.saveWakeWord(wakeWordSwitch.isChecked(), wakeWord);
+        settings.saveWakeWord(wakeRequired, wakeWord);
         settings.setOfflinePreferred(offlineEngineSwitch.isChecked());
+        settings.setNoisyModeEnabled(noisyMode);
         settings.saveGestureParameters(distanceSeekBar.getProgress() + 20,
                 100 + durationSeekBar.getProgress() * 50);
-        AppLog.info(this, "语音指令、识别引擎与手势参数已保存");
-        Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show();
+        AppLog.info(this, "语音指令、识别引擎、嘈杂模式与手势参数已保存");
+        Toast.makeText(this, noisyMode
+                ? "设置已保存；嘈杂模式需重新开始监听生效"
+                : "设置已保存", Toast.LENGTH_SHORT).show();
         return true;
     }
 
@@ -245,7 +271,8 @@ public final class MainActivity extends Activity {
         settings.saveCommands(AppSettings.DEFAULT_UP, AppSettings.DEFAULT_DOWN,
                 AppSettings.DEFAULT_LEFT, AppSettings.DEFAULT_RIGHT);
         settings.saveWakeWord(false, AppSettings.DEFAULT_WAKE_WORD);
-        settings.setOfflinePreferred(false);
+        settings.setOfflinePreferred(true);
+        settings.setNoisyModeEnabled(false);
         settings.saveGestureParameters(45, 300);
         loadSettings();
         AppLog.info(this, "已恢复默认设置");

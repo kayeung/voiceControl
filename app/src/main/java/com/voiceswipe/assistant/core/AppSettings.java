@@ -20,6 +20,7 @@ public final class AppSettings {
     private static final String KEY_DISTANCE = "distance_percent";
     private static final String KEY_DURATION = "duration_ms";
     private static final String KEY_OFFLINE_PREFERRED = "offline_preferred";
+    private static final String KEY_NOISY_MODE = "noisy_mode";
 
     private final SharedPreferences preferences;
 
@@ -68,6 +69,14 @@ public final class AppSettings {
         preferences.edit().putBoolean(KEY_OFFLINE_PREFERRED, preferred).apply();
     }
 
+    public boolean isNoisyModeEnabled() {
+        return preferences.getBoolean(KEY_NOISY_MODE, false);
+    }
+
+    public void setNoisyModeEnabled(boolean enabled) {
+        preferences.edit().putBoolean(KEY_NOISY_MODE, enabled).apply();
+    }
+
     public void saveCommands(String up, String down, String left, String right) {
         preferences.edit()
                 .putString(KEY_UP, up.trim())
@@ -97,7 +106,7 @@ public final class AppSettings {
                 getDownCommands(),
                 getLeftCommands(),
                 getRightCommands(),
-                isWakeWordRequired(),
+                isWakeWordRequired() || isNoisyModeEnabled(),
                 getWakeWord()
         );
     }

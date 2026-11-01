@@ -5,6 +5,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import com.voiceswipe.assistant.core.CommandParser;
+
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.vosk.Model;
 import org.vosk.Recognizer;
@@ -13,6 +16,8 @@ import org.vosk.android.SpeechService;
 import org.vosk.android.StorageService;
 
 import java.io.IOException;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -39,6 +44,7 @@ public final class OfflineSpeechEngine {
     private final Callback callback;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Object lock = new Object();
+    private final String grammarJson;
 
     private ExecutorService executor;
     private volatile boolean running;
@@ -47,8 +53,69 @@ public final class OfflineSpeechEngine {
     private SpeechService speechService;
 
     public OfflineSpeechEngine(Context context, Callback callback) {
+        this(context, callback, null);
+    }
+
+    public OfflineSpeechEngine(Context context, Callback callback, String grammarJson) {
         this.context = context.getApplicationContext();
         this.callback = callback;
+        this.grammarJson = grammarJson;
+    }
+
+    /**
+     * Builds a word-level grammar because the compact Chinese model does not contain
+     * whole command phrases as single vocabulary words. Individual Han characters and
+     * common command tokens are supported. The parser still requires the wake word, so
+     * background advertising speech cannot trigger a swipe by itself.
+     */
+    public static String buildNoisyGrammar(
+            String wakeWord, String up, String down, String left, String right) {
+        Set<String> vocabulary = new LinkedHashSet<>();
+        String[] basics = {
+                "请", "帮", "我", "往", "向", "网", "上", "下", "左", "右",
+                "往上", "向上", "网上", "往下", "向下", "往左", "向左", "往右", "向右",
+                "滑", "滑动", "上滑", "下滑", "左滑", "右滑", "划", "画", "化", "华", "花",
+                "爬", "怕", "趴", "扒", "嗯", "哎", "诶", "小", "助"
+        };
+        for (String token : basics) {
+            vocabulary.add(token);
+        }
+        String normalizedWakeWord = CommandParser.normalize(wakeWord);
+        if (!normalizedWakeWord.isEmpty()) {
+            vocabulary.add(normalizedWakeWord);
+        }
+        addHanCharacters(vocabulary, wakeWord);
+        addHanCharacters(vocabulary, up);
+        addHanCharacters(vocabulary, down);
+        addHanCharacters(vocabulary, left);
+        addHanCharacters(vocabulary, right);
+        if (vocabulary.isEmpty()) {
+            return null;
+        }
+        JSONArray array = new JSONArray();
+        for (String token : vocabulary) {
+            array.put(token);
+        }
+        return array.toString();
+    }
+
+    private static void addHanCharacters(Set<String> vocabulary, String value) {
+        if (value == null) {
+            return;
+        }
+        for (int offset = 0; offset < value.length(); ) {
+            int codePoint = value.codePointAt(offset);
+            offset += Character.charCount(codePoint);
+            if (isHanCharacter(codePoint)) {
+                vocabulary.add(new String(Character.toChars(codePoint)));
+            }
+        }
+    }
+
+    private static boolean isHanCharacter(int codePoint) {
+        return (codePoint >= 0x3400 && codePoint <= 0x4DBF)
+                || (codePoint >= 0x4E00 && codePoint <= 0x9FFF)
+                || (codePoint >= 0xF900 && codePoint <= 0xFAFF);
     }
 
     public void start() {
@@ -84,7 +151,7 @@ public final class OfflineSpeechEngine {
                 return;
             }
             Model loadedModel = new Model(modelPath);
-            Recognizer loadedRecognizer = new Recognizer(loadedModel, SAMPLE_RATE);
+            Recognizer loadedRecognizer = createRecognizer(loadedModel);
             synchronized (lock) {
                 if (!running) {
                     loadedRecognizer.close();
@@ -101,6 +168,19 @@ public final class OfflineSpeechEngine {
         } catch (IOException | RuntimeException exception) {
             Log.e(TAG, "Failed to initialize offline model", exception);
             fail("离线识别初始化失败");
+        }
+    }
+
+    private Recognizer createRecognizer(Model loadedModel) throws IOException {
+        if (grammarJson == null || grammarJson.isEmpty()) {
+            return new Recognizer(loadedModel, SAMPLE_RATE);
+        }
+        try {
+            Log.i(TAG, "Creating offline recognizer with noisy-mode grammar");
+            return new Recognizer(loadedModel, SAMPLE_RATE, grammarJson);
+        } catch (IOException grammarException) {
+            Log.w(TAG, "Grammar rejected; falling back to free decoding", grammarException);
+            return new Recognizer(loadedModel, SAMPLE_RATE);
         }
     }
 

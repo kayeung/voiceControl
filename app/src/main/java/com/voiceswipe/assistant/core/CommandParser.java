@@ -3,9 +3,15 @@ package com.voiceswipe.assistant.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /** Matches normalized speech against user-configurable phrases. */
 public final class CommandParser {
+    private static final Pattern DIRECTION_CONFUSION = Pattern.compile(
+            "([上下去左右])(?:划|画|化|华|花|爬|怕|趴|扒)");
+    private static final Pattern ONLINE_TO_UP =
+            Pattern.compile("网(?=上(?:滑|划|画|化|华|花|爬|怕|趴|扒))");
+
     private final List<Entry> entries = new ArrayList<>();
     private final boolean wakeWordRequired;
     private final String wakeWord;
@@ -35,9 +41,10 @@ public final class CommandParser {
         if (wakeWordRequired && (wakeWord.isEmpty() || !normalizedText.contains(wakeWord))) {
             return null;
         }
+        String correctedText = correctCommonConfusions(normalizedText);
         for (Entry entry : entries) {
-            if (normalizedText.contains(entry.phrase)) {
-                return new Result(entry.direction, entry.phrase, normalizedText);
+            if (correctedText.contains(entry.phrase)) {
+                return new Result(entry.direction, entry.phrase, correctedText);
             }
         }
         return null;
@@ -48,6 +55,16 @@ public final class CommandParser {
             return "";
         }
         return value.toLowerCase(Locale.ROOT).replaceAll("[\\s\\p{P}]+", "");
+    }
+
+    /**
+     * Corrects frequent acoustic confusions only in a direction+verb position.
+     * It does not broadly replace characters, so unrelated advertising speech is not
+     * turned into a swipe command.
+     */
+    private static String correctCommonConfusions(String normalizedText) {
+        String corrected = DIRECTION_CONFUSION.matcher(normalizedText).replaceAll("$1滑");
+        return ONLINE_TO_UP.matcher(corrected).replaceAll("往");
     }
 
     public static boolean hasCommand(String commands) {
@@ -67,7 +84,7 @@ public final class CommandParser {
             return;
         }
         for (String item : commands.split("[,，;；\\r\\n]+")) {
-            String phrase = normalize(item);
+            String phrase = correctCommonConfusions(normalize(item));
             if (!phrase.isEmpty()) {
                 entries.add(new Entry(direction, phrase));
             }

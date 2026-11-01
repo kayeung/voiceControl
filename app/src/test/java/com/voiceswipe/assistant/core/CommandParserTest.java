@@ -50,6 +50,25 @@ public class CommandParserTest {
     @Test
     public void rejectsUnrelatedSpeech() {
         assertNull(parser(false).parse("今天天气怎么样"));
+        assertNull(parser(false).parse("我们在网上购物"));
+    }
+
+    @Test
+    public void correctsCommonNearSoundMistakes() {
+        CommandParser parser = parser(false);
+        assertEquals(SwipeDirection.UP, parser.parse("请往上爬").getDirection());
+        assertEquals(SwipeDirection.UP, parser.parse("帮我向上划").getDirection());
+        assertEquals(SwipeDirection.UP, parser.parse("网上滑").getDirection());
+        assertEquals(SwipeDirection.DOWN, parser.parse("请往下趴").getDirection());
+        assertEquals(SwipeDirection.LEFT, parser.parse("往左华").getDirection());
+        assertEquals(SwipeDirection.RIGHT, parser.parse("向右画").getDirection());
+    }
+
+    @Test
+    public void nearSoundCorrectionStillRequiresWakeWordInNoisyMode() {
+        CommandParser parser = parser(true);
+        assertNull(parser.parse("请往上爬"));
+        assertEquals(SwipeDirection.UP, parser.parse("小助小助，请往上爬").getDirection());
     }
 
     @Test

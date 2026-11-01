@@ -166,6 +166,22 @@
                 android:textSize="12sp" />
 
             <Switch
+                android:id="@+id/noisyModeSwitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="嘈杂环境增强（需唤醒词）"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="限制离线识别词表并强制先说唤醒词，适合外放广告或环境噪声；外放较大时仍建议使用耳机麦克风。保存后重新开始监听生效。"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <Switch
                 android:id="@+id/wakeWordSwitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

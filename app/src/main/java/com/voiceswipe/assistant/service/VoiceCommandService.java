@@ -304,9 +304,20 @@ public final class VoiceCommandService extends Service implements RecognitionLis
         }
         AppLog.warning(this, reason);
         updateStatus("正在准备离线语音模型");
-        offlineEngine = new OfflineSpeechEngine(this, offlineCallback);
+        String grammar = null;
+        if (settings.isNoisyModeEnabled()) {
+            grammar = OfflineSpeechEngine.buildNoisyGrammar(
+                    settings.getWakeWord(),
+                    settings.getUpCommands(),
+                    settings.getDownCommands(),
+                    settings.getLeftCommands(),
+                    settings.getRightCommands()
+            );
+        }
+        offlineEngine = new OfflineSpeechEngine(this, offlineCallback, grammar);
         offlineEngine.start();
-        Log.i(TAG, "Offline recognition requested");
+        Log.i(TAG, "Offline recognition requested, noisyMode="
+                + settings.isNoisyModeEnabled() + ", grammar=" + (grammar != null));
     }
 
     private void handleOfflineError(String message) {
@@ -412,8 +423,15 @@ public final class VoiceCommandService extends Service implements RecognitionLis
             if (!settings.isOfflinePreferred()) {
                 settings.setOfflinePreferred(true);
             }
-            AppLog.info(VoiceCommandService.this, "离线语音识别已就绪");
-            updateStatus("离线识别已就绪");
+            boolean noisyMode = settings.isNoisyModeEnabled();
+            boolean wakeRequired = settings.isWakeWordRequired() || noisyMode;
+            if (noisyMode) {
+                AppLog.info(VoiceCommandService.this, "嘈杂模式已就绪，请先说唤醒词");
+                updateStatus("嘈杂识别已就绪（需唤醒词）");
+            } else {
+                AppLog.info(VoiceCommandService.this, "离线语音识别已就绪");
+                updateStatus(wakeRequired ? "离线识别已就绪（需唤醒词）" : "离线识别已就绪");
+            }
         }
 
         @Override
